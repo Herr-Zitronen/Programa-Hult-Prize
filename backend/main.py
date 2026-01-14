@@ -44,19 +44,18 @@ async def startup_event():
 
     if role_count == 0:
         print("db is empty, creating default role...")
-        ai = AIEngine() 
+        # ai = AIEngine()  <-- Removed
         
         name = "Python Backend Developer"
         description = "Looking for an expert in Python, FastAPI, SQL, and System Design."
-        text = f"{name} {description}"
-        embedding = ai.get_embedding(text)
         
-        # Embedding is already a list
+        # Logic NLP doesn't use embeddings, pass empty list
         default_role = models.Role(
             name=name,
             description=description
         )
-        default_role.set_embedding(embedding)
+        default_role.set_embedding([])
+
         
         db.add(default_role)
         db.commit()
