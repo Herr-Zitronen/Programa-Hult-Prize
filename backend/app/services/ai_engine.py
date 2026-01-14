@@ -46,7 +46,8 @@ class AIEngine:
         else:
             print("Warning: HF_TOKEN not set. API calls might fail.")
         
-        payload = {"inputs": text}
+        # Payload must be a list for Feature Extraction pipeline to work correctly
+        payload = {"inputs": [text]}
         
         # Retry logic for model loading (503)
         max_retries = 1
@@ -56,10 +57,17 @@ class AIEngine:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    if isinstance(data, list):
-                        if len(data) > 0 and isinstance(data[0], list):
+                    # Data should be a list of embeddings (list of lists)
+                    if isinstance(data, list) and len(data) > 0:
+                        # We sent one input, so we take the first result
+                         if isinstance(data[0], list):
+                            # data[0] is the embedding vector [0.1, 0.2, ...]
+                            # Sometimes API returns [[[0.1...]]] (3D) if batching is weird, but usually 2D.
+                            # Standard Feature Extraction: [ [embedding_vector] ]
                             return data[0]
-                        return data
+                         # If it's just [0.1, 0.2] (unexpected for list input but possible)
+                         return data
+                    
                     return [0.0] * 384 # Unexpected format fallback
 
                 elif response.status_code == 503:
