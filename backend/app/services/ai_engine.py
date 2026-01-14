@@ -8,9 +8,10 @@ from docx import Document
 
 class AIEngine:
     def __init__(self):
-        self.api_url = "https://router.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+        # Migrated to standard Inference API URL for better stability
+        self.api_url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
         self.api_token = os.environ.get("HF_TOKEN")
-        print("AI Engine initialized via Hugging Face API.")
+        print("AI Engine initialized via Hugging Face API (Inference Endpoint).")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -45,27 +46,34 @@ class AIEngine:
         payload = {"inputs": text}
         try:
             response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            
             if response.status_code == 200:
-                # The API returns a list of floats directly for a single string input
-                # Example: [0.1, 0.2, ...]
                 data = response.json()
-                # Safety check: ensure it's a list even if API format changes
+                # Handle different return formats from HF API
+                # Case 1: List of floats [0.1, 0.2, ...] (Standard for Feature Extraction)
+                # Case 2: List of list [[0.1, ...]] (Batch mode sometimes)
                 if isinstance(data, list):
-                    # Sometimes API returns [[...]] if inputs is a list
                     if len(data) > 0 and isinstance(data[0], list):
-                        return data[0] 
+                        return data[0]
                     return data
+                # Case 3: Error dictionary wrapped in 200 (rare but possible)
+                if isinstance(data, dict) and "error" in data:
+                    print(f"HF API returned error in JSON: {data}")
+
             else:
-                print(f"HF API Error {response.status_code}: {response.text}")
+                # Debug logging requested by user
+                print(f"HF API Failed. Status: {response.status_code}")
+                print(f"Response: {response.text}")
+
         except Exception as e:
             print(f"HF API Exception: {e}")
         
         # Fallback: Zero vector (384 dimensions for MiniLM)
+        print("Using Fallback Zero Vector due to API failure.")
         return [0.0] * 384
 
     def calculate_similarity(self, embedding1, embedding2):
         # Manual Cosine Similarity (No numpy/scikit-learn)
-        # Cosine Similarity = (A . B) / (||A|| * ||B||)
         
         if not embedding1 or not embedding2:
             return 0
@@ -82,13 +90,13 @@ class AIEngine:
             
         similarity = dot_product / (magnitude1 * magnitude2)
         
-        # Clamp between 0 and 1 just in case floating point errors
+        # Clamp between 0 and 1
         similarity = max(0.0, min(1.0, similarity))
         
         return int(similarity * 100)
 
     def extract_keywords(self, text: str, role_text: str = ""):
-        # Simple Explainability Logic (Regex based, no heavy NLP)
+        # Simple Explainability Logic (Regex based)
         
         def tokenize(s):
             # Lowercase and split by non-alphanumeric
