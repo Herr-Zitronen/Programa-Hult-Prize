@@ -3,15 +3,9 @@ import io
 from PyPDF2 import PdfReader
 from docx import Document
 
-# Lista básica de palabras vacías en español e inglés para limpiar ruido
-STOPWORDS = {
-    "de", "la", "que", "el", "en", "y", "a", "los", "se", "del", "las", "un", "por", "con", "no", "una", "su", "para", "es", "al", "lo", "como", "mas", "pero", "sus", "le", "ya", "o", "fue", "este", "ha", "si", "porque", "esta", "son", "entre", "cuando", "muy", "sin", "sobre", "ser", "tiene", "tambien", "me", "hasta", "hay", "donde", "quien", "desde", "nos", "durante",
-    "the", "and", "of", "to", "in", "a", "is", "for", "on", "with", "as", "by"
-}
-
 class AIEngine:
     def __init__(self):
-        print("Logic NLP Engine initialized (Deterministic Mode).")
+        print("Logic NLP Engine initialized (Deterministic Mode - Aggressive).")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -34,43 +28,39 @@ class AIEngine:
             return ""
 
     def clean_tokenize(self, text: str):
-        # 1. Minusculas y quitar caracteres especiales
+        # Limpieza agresiva: minúsculas y solo alfanuméricos
         text = text.lower()
-        text = re.sub(r'[^a-z0-9áéíóúñ\s]', '', text)
-        # 2. Tokenizar por espacios
+        # Reemplazar puntuación por espacios para no pegar palabras
+        text = re.sub(r'[^a-z0-9áéíóúñ]', ' ', text) 
         tokens = set(text.split())
-        # 3. Filtrar stopwords
-        return {word for word in tokens if word not in STOPWORDS and len(word) > 2}
+        
+        # Stopwords mínimas para no filtrar de más por error
+        STOPWORDS = {
+            "de", "la", "que", "el", "en", "y", "a", "los", "del", "las", "un", "una", "por", "para", "con", "no", "sus", 
+            "is", "the", "and", "to", "of", "in"
+        }
+        
+        return {w for w in tokens if w not in STOPWORDS and len(w) > 2}
+
+    def get_embedding(self, text: str):
+        # Mock para compatibilidad con llamadas legacy
+        return []
 
     def calculate_similarity_and_skills(self, cv_text: str, role_text: str):
-        """
-        Calcula score basado en coincidencia de palabras clave (Jaccard Index adaptado)
-        """
         cv_tokens = self.clean_tokenize(cv_text)
         role_tokens = self.clean_tokenize(role_text)
 
-        if not role_tokens:
-            return 0, []
-
-        # Intersección: Palabras que están en AMBOS (CV y Rol)
         intersection = cv_tokens.intersection(role_tokens)
-        
-        # Matched Skills (para mostrar en el frontend)
-        matched_skills = list(intersection)
-
         match_count = len(intersection)
         
-        # Curva "Demo Friendly":
-        if match_count == 0: score = 10
-        elif match_count <= 2: score = 45  # ¡Animo al usuario!
-        elif match_count <= 4: score = 65
-        elif match_count <= 6: score = 80  # Bastante bien
-        elif match_count <= 9: score = 92  # Excelente
-        else: score = 98  # Perfecto (>9 palabras)
-        
-        final_score = int(score)
+        # FÓRMULA AGRESIVA PARA DEMO:
+        # Base 15%. Cada palabra coincidente suma 12%.
+        # 3 coincidencias = 51%
+        # 5 coincidencias = 75%
+        # 7 coincidencias = 99%
+        score = 15 + (match_count * 12)
 
-        return final_score, matched_skills
+        return min(98, int(score)), list(intersection)
 
     def analyze_cv(self, cv_text, role_text):
         """
@@ -80,5 +70,5 @@ class AIEngine:
         return {
             "score": score,
             "matched_skills": skills[:10],  # Top 10 coincidencias
-            "explanation": f"Se encontraron {len(skills)} coincidencias clave entre el CV y el perfil del cargo."
+            "explanation": f"Se encontraron {len(skills)} coincidencias clave."
         }

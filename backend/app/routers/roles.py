@@ -15,25 +15,23 @@ router = APIRouter(
 def create_role(
     role: schemas.RoleCreate,
     db: Session = Depends(dependencies.get_db),
-    ai: AIEngine = Depends(dependencies.get_ai_engine)
+    # ai dependency removed from usage, but kept if needed for signature compatibility, though not used here.
+    # actually better to just not use it.
 ):
-    # 1. Generate text for embedding (Title + Description)
-    full_text = f"{role.name} {role.description}"
-    
-    # 2. Generate embedding
-    embedding = ai.get_embedding(full_text)
-    
-    # 3. Create Role object
+    # 1. Create Role object directly
     db_role = models.Role(name=role.name, description=role.description)
     
-    # 4. Save embedding (as list/JSON)
-    # Embedding is already a list from AI engine
-    db_role.set_embedding(embedding)
+    # 2. Logic NLP doesn't use embeddings, pass empty list
+    db_role.set_embedding([])
     
-    # 5. Save to DB
-    db.add(db_role)
-    db.commit()
-    db.refresh(db_role)
+    # 3. Save to DB with error handling
+    try:
+        db.add(db_role)
+        db.commit()
+        db.refresh(db_role)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Error creating role. Title might be duplicate. {str(e)}")
     
     return db_role
 
