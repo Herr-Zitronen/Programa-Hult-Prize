@@ -53,13 +53,17 @@ class AIEngine:
         intersection = cv_tokens.intersection(role_tokens)
         match_count = len(intersection)
         
-        # FÓRMULA AGRESIVA PARA DEMO:
-        # Base 15%. Cada palabra coincidente suma 12%.
-        # 3 coincidencias = 51%
-        # 5 coincidencias = 75%
-        # 7 coincidencias = 99%
-        score = 15 + (match_count * 12)
-
+        # FÓRMULA NUCLEAR PARA DEMO:
+        # Base altísima (60%) + 15% por cada palabra.
+        # 1 coincidencia = 75% (Verde claro)
+        # 2 coincidencias = 90% (Excelente)
+        # 3 coincidencias = 98% (Perfecto)
+        
+        if match_count == 0:
+            score = 10 # Solo aquí castigamos
+        else:
+            score = 60 + (match_count * 15)
+        
         return min(98, int(score)), list(intersection)
 
     def analyze_cv(self, cv_text, role_text):
