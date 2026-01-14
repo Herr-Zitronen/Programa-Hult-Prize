@@ -16,6 +16,14 @@ export async function createRole(name: string, description: string) {
     return res.json();
 }
 
+export async function deleteRole(roleId: number) {
+    const res = await fetch(`${API_URL}/roles/${roleId}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete role');
+    return res.json();
+}
+
 export async function fetchRankings(roleId: number) {
     const res = await fetch(`${API_URL}/candidates/${roleId}`);
     if (!res.ok) throw new Error('Failed to fetch rankings');

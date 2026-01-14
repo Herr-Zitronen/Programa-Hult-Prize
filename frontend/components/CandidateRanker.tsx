@@ -93,6 +93,19 @@ export default function CandidateRanker({ roleId }: { roleId: number }) {
                 )}
             </div>
 
+            {/* Results Header with Cleanup */}
+            <div className="flex justify-between items-end mb-3 px-1">
+                <h3 className="text-lg font-semibold text-gray-700">Ranking Resultante</h3>
+                {candidates.length > 0 && (
+                    <button
+                        onClick={() => setCandidates([])}
+                        className="text-gray-500 hover:text-red-600 underline text-sm transition-colors flex items-center gap-1"
+                    >
+                        <span>🗑️</span> Limpiar lista
+                    </button>
+                )}
+            </div>
+
             {/* Results Table */}
             <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
                 <table className="w-full text-sm text-left text-gray-500">

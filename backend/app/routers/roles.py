@@ -43,3 +43,16 @@ def read_roles(
 ):
     roles = db.query(models.Role).offset(skip).limit(limit).all()
     return roles
+
+@router.delete("/{role_id}")
+def delete_role(
+    role_id: int,
+    db: Session = Depends(dependencies.get_db)
+):
+    role = db.query(models.Role).filter(models.Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    db.delete(role)
+    db.commit()
+    return {"message": "Role deleted"}
