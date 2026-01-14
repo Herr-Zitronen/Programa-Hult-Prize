@@ -9,10 +9,10 @@ from docx import Document
 
 class AIEngine:
     def __init__(self):
-        # Using standard Inference API as requested for Feature Extraction
-        self.api_url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+        # Updated to Router URL with /hf-inference path as per HF 410 error
+        self.api_url = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2"
         self.api_token = os.environ.get("HF_TOKEN")
-        print("AI Engine initialized via Hugging Face Inference API.")
+        print("AI Engine initialized via Hugging Face Router API.")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -46,8 +46,11 @@ class AIEngine:
         else:
             print("Warning: HF_TOKEN not set. API calls might fail.")
         
-        # User requested specific format: inputs as string
-        payload = {"inputs": text}
+        # User requested specific format: inputs as string with options
+        payload = {
+            "inputs": text,
+            "options": {"wait_for_model": True}
+        }
         
         try:
             response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
