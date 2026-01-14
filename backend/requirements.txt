@@ -1,9 +1,10 @@
 fastapi
 uvicorn
+python-multipart
 sqlalchemy
-sentence-transformers
+pydantic
 python-docx
 pypdf2
-python-multipart
-numpy
-scikit-learn
+sentence-transformers
+# Forzar version CPU para que quepa en Render Free Tier
+torch --extra-index-url https://download.pytorch.org/whl/cpu

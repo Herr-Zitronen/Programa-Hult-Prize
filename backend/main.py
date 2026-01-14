@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-from . import models
-from .routers import roles, candidates
+from app.database import engine, Base
+from app import models
+from app.routers import roles, candidates
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -30,8 +30,8 @@ app.include_router(candidates.router)
 @app.on_event("startup")
 async def startup_event():
     # Seed data if empty
-    from .database import SessionLocal
-    from .services.ai_engine import AIEngine
+    from app.database import SessionLocal
+    from app.services.ai_engine import AIEngine
     import json
     
     db = SessionLocal()
