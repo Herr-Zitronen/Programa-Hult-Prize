@@ -30,15 +30,19 @@ export default function CandidateRanker({ roleId }: { roleId: number }) {
 
     async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files?.length) return;
-        const file = e.target.files[0];
+
+        const files = Array.from(e.target.files);
         setUploading(true);
         setError('');
 
         try {
-            await uploadCV(roleId, file);
+            // Process all files
+            for (const file of files) {
+                await uploadCV(roleId, file);
+            }
             await loadCandidates();
         } catch (err: any) {
-            setError(err.message || 'Fallo en la subida');
+            setError(err.message || 'Fallo en la subida de algunos archivos');
         } finally {
             setUploading(false);
             e.target.value = '';
@@ -79,7 +83,7 @@ export default function CandidateRanker({ roleId }: { roleId: number }) {
                             </div>
                         )}
                     </div>
-                    <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={uploading} />
+                    <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.docx" disabled={uploading} multiple />
                 </label>
                 {error && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
