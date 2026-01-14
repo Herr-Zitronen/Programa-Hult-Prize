@@ -5,6 +5,5 @@ sqlalchemy
 pydantic
 python-docx
 pypdf2
-sentence-transformers
-# Forzar version CPU para que quepa en Render Free Tier
-torch --extra-index-url https://download.pytorch.org/whl/cpu
+requests
+jinja2

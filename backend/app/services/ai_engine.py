@@ -1,17 +1,16 @@
 import io
 import re
-import numpy as np
-from sentence_transformers import SentenceTransformer, util
+import os
+import requests
+import json
 from PyPDF2 import PdfReader
 from docx import Document
-from sklearn.metrics.pairwise import cosine_similarity
 
 class AIEngine:
     def __init__(self):
-        # Load the specified lightweight model
-        print("Loading AI Model: all-MiniLM-L6-v2...")
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("AI Model loaded successfully.")
+        self.api_url = "https://router.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+        self.api_token = os.environ.get("HF_TOKEN")
+        print("AI Engine initialized via Hugging Face API.")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -34,38 +33,72 @@ class AIEngine:
             return ""
     
     def clean_text(self, text: str) -> str:
-        # Basic cleanup: remove extra whitespace, distinct characters could be removed if needed
         text = re.sub(r'\s+', ' ', text).strip()
         return text
 
     def get_embedding(self, text: str):
-        # Generate embedding for a single text
-        return self.model.encode(text, convert_to_tensor=False)
+        # Call Hugging Face API
+        headers = {}
+        if self.api_token:
+            headers["Authorization"] = f"Bearer {self.api_token}"
+        
+        payload = {"inputs": text}
+        try:
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            if response.status_code == 200:
+                # The API returns a list of floats directly for a single string input
+                # Example: [0.1, 0.2, ...]
+                data = response.json()
+                # Safety check: ensure it's a list even if API format changes
+                if isinstance(data, list):
+                    # Sometimes API returns [[...]] if inputs is a list
+                    if len(data) > 0 and isinstance(data[0], list):
+                        return data[0] 
+                    return data
+            else:
+                print(f"HF API Error {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"HF API Exception: {e}")
+        
+        # Fallback: Zero vector (384 dimensions for MiniLM)
+        return [0.0] * 384
 
     def calculate_similarity(self, embedding1, embedding2):
-        # Calculate cosine similarity between two embeddings
-        emb1 = embedding1.reshape(1, -1)
-        emb2 = embedding2.reshape(1, -1)
-        score = cosine_similarity(emb1, emb2)[0][0]
-        # Return integer 0-100
-        return int(score * 100)
+        # Manual Cosine Similarity (No numpy/scikit-learn)
+        # Cosine Similarity = (A . B) / (||A|| * ||B||)
+        
+        if not embedding1 or not embedding2:
+            return 0
+
+        # Dot product
+        dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
+        
+        # Magnitudes
+        magnitude1 = sum(a * a for a in embedding1) ** 0.5
+        magnitude2 = sum(b * b for b in embedding2) ** 0.5
+        
+        if magnitude1 == 0 or magnitude2 == 0:
+            return 0
+            
+        similarity = dot_product / (magnitude1 * magnitude2)
+        
+        # Clamp between 0 and 1 just in case floating point errors
+        similarity = max(0.0, min(1.0, similarity))
+        
+        return int(similarity * 100)
 
     def extract_keywords(self, text: str, role_text: str = ""):
-        # Simple Explainability Logic:
-        # 1. Tokenize both texts (simple split by non-word chars)
-        # 2. Filter out short words (stopwords check would be better but simple length works for MVP)
-        # 3. Find intersection
+        # Simple Explainability Logic (Regex based, no heavy NLP)
         
         def tokenize(s):
-             # Lowercase and split by non-alphanumeric
+            # Lowercase and split by non-alphanumeric
             words = re.findall(r'\b[a-z]{3,}\b', s.lower())
             return set(words)
 
         cv_tokens = tokenize(text)
         role_tokens = tokenize(role_text)
         
-        # Common tokens, excluding very common generic words if we had a list, 
-        # but intersection with Role usually limits it to relevant terms implicitly.
+        # Intersection
         common = cv_tokens.intersection(role_tokens)
         
         return list(common)

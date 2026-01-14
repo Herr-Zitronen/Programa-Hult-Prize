@@ -27,9 +27,7 @@ def create_role(
     db_role = models.Role(name=role.name, description=role.description)
     
     # 4. Save embedding (as list/JSON)
-    # Convert numpy array to list if needed
-    if hasattr(embedding, "tolist"):
-        embedding = embedding.tolist()
+    # Embedding is already a list from AI engine
     db_role.set_embedding(embedding)
     
     # 5. Save to DB

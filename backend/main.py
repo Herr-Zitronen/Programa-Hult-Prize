@@ -51,9 +51,7 @@ async def startup_event():
         text = f"{name} {description}"
         embedding = ai.get_embedding(text)
         
-        if hasattr(embedding, "tolist"):
-            embedding = embedding.tolist()
-            
+        # Embedding is already a list
         default_role = models.Role(
             name=name,
             description=description
