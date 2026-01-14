@@ -60,20 +60,42 @@ class AIEngine:
         intersection = cv_tokens.intersection(role_tokens)
         match_count = len(intersection)
         
-        # FÓRMULA DE CONTRASTE:
-        # Si match_count es bajo (1 o 2), el score se queda bajo.
-        # Necesitas al menos 3 o 4 palabras CLAVE reales para subir.
-        if match_count == 0: score = 5
-        elif match_count == 1: score = 25 # Una coincidencia aislada no es suficiente
-        elif match_count == 2: score = 45 # Mejorando...
-        elif match_count == 3: score = 65 # Aceptable
-        elif match_count == 4: score = 80 # Muy bueno
-        else: score = 90 + (match_count * 2) # Excelente
-
-        # Cap at 99
-        final_score = int(min(99, score))
-
-        return final_score, list(intersection)
+        # Factor de "Precisión": Suma el largo de las palabras coincidentes y usa Modulo 7.
+        # Esto añade un valor entre 0 y 6% que depende del contenido, rompiendo los números redondos.
+        # Es determinista (siempre da lo mismo para el mismo CV) pero parece aleatorio.
+        precision_variance = sum(len(w) for w in intersection) % 7
+        
+        if match_count == 0:
+            # Rango: 7% - 13%
+            score = 7 + precision_variance
+            
+        elif match_count == 1:
+            # Rango: 23% - 29% (Bajo, pero preciso)
+            score = 23 + precision_variance
+            
+        elif match_count == 2:
+            # Rango: 42% - 48% (Casi la mitad)
+            score = 42 + precision_variance
+            
+        elif match_count == 3:
+            # Rango: 64% - 70% (Pasable)
+            score = 64 + precision_variance
+            
+        elif match_count == 4:
+            # Rango: 78% - 84% (Bueno)
+            score = 78 + precision_variance
+            
+        elif match_count == 5:
+            # Rango: 89% - 95% (Excelente)
+            score = 89 + precision_variance
+            
+        else:
+            # Rango: 96% - 99% (Perfecto)
+            # Saturación suave
+            raw_score = 94 + (match_count) + (precision_variance / 2)
+            score = min(99, raw_score)
+        
+        return int(score), list(intersection)
 
     def analyze_cv(self, cv_text, role_text):
         """
