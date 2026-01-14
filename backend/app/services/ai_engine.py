@@ -9,10 +9,10 @@ from docx import Document
 
 class AIEngine:
     def __init__(self):
-        # Updated to Router URL with /hf-inference path
-        self.api_url = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2"
+        # Using standard Inference API as requested for Feature Extraction
+        self.api_url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
         self.api_token = os.environ.get("HF_TOKEN")
-        print("AI Engine initialized via Hugging Face Router API.")
+        print("AI Engine initialized via Hugging Face Inference API.")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -46,49 +46,35 @@ class AIEngine:
         else:
             print("Warning: HF_TOKEN not set. API calls might fail.")
         
-        # Payload must be a list for Feature Extraction pipeline to work correctly
-        payload = {"inputs": [text]}
+        # User requested specific format: inputs as string
+        payload = {"inputs": text}
         
-        # Retry logic for model loading (503)
-        max_retries = 1
-        for attempt in range(max_retries + 1):
-            try:
-                response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+        try:
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    # Data should be a list of embeddings (list of lists)
-                    if isinstance(data, list) and len(data) > 0:
-                        # We sent one input, so we take the first result
-                         if isinstance(data[0], list):
-                            # data[0] is the embedding vector [0.1, 0.2, ...]
-                            # Sometimes API returns [[[0.1...]]] (3D) if batching is weird, but usually 2D.
-                            # Standard Feature Extraction: [ [embedding_vector] ]
-                            return data[0]
-                         # If it's just [0.1, 0.2] (unexpected for list input but possible)
-                         return data
-                    
-                    return [0.0] * 384 # Unexpected format fallback
+                # Check response format
+                if isinstance(data, list):
+                    # If it's a list of floats, it is the embedding
+                    if len(data) > 0 and isinstance(data[0], float):
+                        return data
+                    # If it's a list of lists (batch), take the first one
+                    if len(data) > 0 and isinstance(data[0], list):
+                         return data[0]
+                    return data
+                
+                return [0.0] * 384 # Unexpected format
 
-                elif response.status_code == 503:
-                    # Model loading... wait and retry
-                    if attempt < max_retries:
-                        print(f"HF API 503 (Model Loading). Retrying in 2s... (Attempt {attempt+1}/{max_retries})")
-                        time.sleep(2)
-                        continue
-                    else:
-                         print("HF API 503: Model still loading after retry.")
+            else:
+                print(f"HF API Failed. Status: {response.status_code}")
+                print(f"Response: {response.text}")
 
-                else:
-                    print(f"HF API Failed. Status: {response.status_code}")
-                    print(f"Response: {response.text}")
-                    break # Don't retry other errors blindly
-
-            except Exception as e:
-                print(f"HF API Exception: {e}")
-                break
+        except Exception as e:
+            print(f"HF API Exception: {e}")
         
-        # Fallback: Zero vector
+        # Fallback
         print("Using Fallback Zero Vector due to API failure.")
         return [0.0] * 384
 
