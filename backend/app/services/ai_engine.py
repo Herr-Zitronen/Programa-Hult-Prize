@@ -2,16 +2,17 @@ import io
 import re
 import os
 import requests
+import time
 import json
 from PyPDF2 import PdfReader
 from docx import Document
 
 class AIEngine:
     def __init__(self):
-        # Migrated to standard Inference API URL for better stability
-        self.api_url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+        # Updated to Router URL as per HF 410 error
+        self.api_url = "https://router.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
         self.api_token = os.environ.get("HF_TOKEN")
-        print("AI Engine initialized via Hugging Face API (Inference Endpoint).")
+        print("AI Engine initialized via Hugging Face Router API.")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -42,33 +43,44 @@ class AIEngine:
         headers = {}
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
+        else:
+            print("Warning: HF_TOKEN not set. API calls might fail.")
         
         payload = {"inputs": text}
-        try:
-            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                # Handle different return formats from HF API
-                # Case 1: List of floats [0.1, 0.2, ...] (Standard for Feature Extraction)
-                # Case 2: List of list [[0.1, ...]] (Batch mode sometimes)
-                if isinstance(data, list):
-                    if len(data) > 0 and isinstance(data[0], list):
-                        return data[0]
-                    return data
-                # Case 3: Error dictionary wrapped in 200 (rare but possible)
-                if isinstance(data, dict) and "error" in data:
-                    print(f"HF API returned error in JSON: {data}")
-
-            else:
-                # Debug logging requested by user
-                print(f"HF API Failed. Status: {response.status_code}")
-                print(f"Response: {response.text}")
-
-        except Exception as e:
-            print(f"HF API Exception: {e}")
         
-        # Fallback: Zero vector (384 dimensions for MiniLM)
+        # Retry logic for model loading (503)
+        max_retries = 1
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, list):
+                        if len(data) > 0 and isinstance(data[0], list):
+                            return data[0]
+                        return data
+                    return [0.0] * 384 # Unexpected format fallback
+
+                elif response.status_code == 503:
+                    # Model loading... wait and retry
+                    if attempt < max_retries:
+                        print(f"HF API 503 (Model Loading). Retrying in 2s... (Attempt {attempt+1}/{max_retries})")
+                        time.sleep(2)
+                        continue
+                    else:
+                         print("HF API 503: Model still loading after retry.")
+
+                else:
+                    print(f"HF API Failed. Status: {response.status_code}")
+                    print(f"Response: {response.text}")
+                    break # Don't retry other errors blindly
+
+            except Exception as e:
+                print(f"HF API Exception: {e}")
+                break
+        
+        # Fallback: Zero vector
         print("Using Fallback Zero Vector due to API failure.")
         return [0.0] * 384
 
