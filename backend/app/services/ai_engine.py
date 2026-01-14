@@ -58,16 +58,17 @@ class AIEngine:
         # Matched Skills (para mostrar en el frontend)
         matched_skills = list(intersection)
 
-        # Cálculo del Score:
-        # Que porcentaje de las palabras del ROL tiene el candidato?
-        # Le damos un boost x1.5 para que los scores no sean tan bajos en textos largos
-        if len(role_tokens) == 0:
-            score = 0
-        else:
-            score = (len(intersection) / len(role_tokens)) * 100 * 1.5
-
-        # Cap score at 95% (nadie es perfecto) y min 10%
-        final_score = int(min(95, max(10, score)))
+        match_count = len(intersection)
+        
+        # Curva "Demo Friendly":
+        if match_count == 0: score = 10
+        elif match_count <= 2: score = 45  # ¡Animo al usuario!
+        elif match_count <= 4: score = 65
+        elif match_count <= 6: score = 80  # Bastante bien
+        elif match_count <= 9: score = 92  # Excelente
+        else: score = 98  # Perfecto (>9 palabras)
+        
+        final_score = int(score)
 
         return final_score, matched_skills
 

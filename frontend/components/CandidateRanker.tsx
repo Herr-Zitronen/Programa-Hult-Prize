@@ -122,7 +122,7 @@ export default function CandidateRanker({ roleId }: { roleId: number }) {
                                 <td className="px-6 py-4">
                                     <div className="flex flex-wrap gap-2">
                                         {cand.matched_skills.map(skill => (
-                                            <span key={skill} className="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md border border-indigo-100 uppercase tracking-wide">
+                                            <span key={skill} className="bg-indigo-100 text-indigo-800 font-semibold px-3 py-1 rounded-full text-sm mr-2 mb-2 inline-block shadow-sm">
                                                 {skill}
                                             </span>
                                         ))}
