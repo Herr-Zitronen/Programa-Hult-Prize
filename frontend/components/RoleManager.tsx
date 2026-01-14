@@ -20,6 +20,8 @@ export default function RoleManager({ selectedRoleId, onRoleSelect }: RoleManage
     const [isCreating, setIsCreating] = useState(false);
     const [newName, setNewName] = useState('');
     const [newDesc, setNewDesc] = useState('');
+    // State para selección visual robusta (evita fantasmas por duplicados)
+    const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
     useEffect(() => {
         loadRoles();
@@ -29,8 +31,13 @@ export default function RoleManager({ selectedRoleId, onRoleSelect }: RoleManage
         try {
             const data = await fetchRoles();
             setRoles(data);
-            if (data.length > 0 && !selectedRoleId) {
-                onRoleSelect(data[0].id);
+            if (data.length > 0) {
+                // Seleccionar índice 0 por defecto visualmente
+                setSelectedIndex(0);
+                // Notificar ID al padre
+                if (!selectedRoleId) {
+                    onRoleSelect(data[0].id);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -44,8 +51,14 @@ export default function RoleManager({ selectedRoleId, onRoleSelect }: RoleManage
         if (!newName || !newDesc) return;
         try {
             const newRole = await createRole(newName, newDesc);
-            setRoles([...roles, newRole]);
+            const updatedRoles = [...roles, newRole];
+            setRoles(updatedRoles);
+
+            // Seleccionar el nuevo (último)
+            const newIndex = updatedRoles.length - 1;
+            setSelectedIndex(newIndex);
             onRoleSelect(newRole.id);
+
             setIsCreating(false);
             setNewName('');
             setNewDesc('');
@@ -108,21 +121,24 @@ export default function RoleManager({ selectedRoleId, onRoleSelect }: RoleManage
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {roles.map(role => (
+                    {roles.map((role, index) => (
                         <div
-                            key={role.id}
-                            onClick={() => onRoleSelect(role.id)}
-                            className={`cursor-pointer p-5 rounded-xl border transition-all duration-200 relative overflow-hidden group ${selectedRoleId === role.id
-                                    ? 'border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-500 shadow-md'
-                                    : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300 hover:shadow-lg hover:-translate-y-1'
+                            key={index} // Usar Index como Key para estabilidad visual
+                            onClick={() => {
+                                setSelectedIndex(index);
+                                onRoleSelect(role.id);
+                            }}
+                            className={`cursor-pointer p-5 rounded-xl border transition-all duration-200 relative overflow-hidden group ${index === selectedIndex
+                                ? 'border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-500 shadow-md'
+                                : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300 hover:shadow-lg hover:-translate-y-1'
                                 }`}
                         >
-                            {selectedRoleId === role.id && (
+                            {index === selectedIndex && (
                                 <div className="absolute top-0 right-0 bg-indigo-500 text-white text-xs px-2 py-1 rounded-bl-lg font-bold">
                                     ACTIVO
                                 </div>
                             )}
-                            <h3 className={`font-bold text-lg mb-2 ${selectedRoleId === role.id ? 'text-indigo-900' : 'text-gray-900'}`}>{role.name}</h3>
+                            <h3 className={`font-bold text-lg mb-2 ${index === selectedIndex ? 'text-indigo-900' : 'text-gray-900'}`}>{role.name}</h3>
                             <p className="text-gray-600 text-sm line-clamp-3 leading-relaxed">
                                 {role.description}
                             </p>
