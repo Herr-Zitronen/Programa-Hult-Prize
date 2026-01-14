@@ -34,10 +34,17 @@ class AIEngine:
         text = re.sub(r'[^a-z0-9áéíóúñ]', ' ', text) 
         tokens = set(text.split())
         
-        # Stopwords mínimas para no filtrar de más por error
+        # LISTA NEGRA EXTENDIDA (Español e Inglés)
         STOPWORDS = {
-            "de", "la", "que", "el", "en", "y", "a", "los", "del", "las", "un", "una", "por", "para", "con", "no", "sus", 
-            "is", "the", "and", "to", "of", "in"
+            # Gramática básica
+            "de", "la", "que", "el", "en", "y", "a", "los", "del", "las", "un", "una", "por", "para", "con", "no", "sus", "su", "es", "lo", "al", "como", "mas", "pero",
+            "is", "the", "and", "to", "of", "in", "for", "on", "with", "as", "by", "an", "are", "be", "or", "at",
+            # Palabras "Relleno" de RRHH (¡Aquí está el truco!)
+            "experiencia", "experience", "trabajo", "work", "job", "equipo", "team", "teams", "grupo", 
+            "buscamos", "looking", "candidato", "candidate", "perfil", "profile", "habilidades", "skills",
+            "conocimientos", "knowledge", "nivel", "level", "años", "years", "capacidad", "ability",
+            "excelente", "excellent", "manejo", "uso", "using", "profesional", "professional",
+            "responsabilidades", "funciones", "cargo", "puesto", "empresa", "company", "sector"
         }
         
         return {w for w in tokens if w not in STOPWORDS and len(w) > 2}
@@ -53,18 +60,20 @@ class AIEngine:
         intersection = cv_tokens.intersection(role_tokens)
         match_count = len(intersection)
         
-        # FÓRMULA NUCLEAR PARA DEMO:
-        # Base altísima (60%) + 15% por cada palabra.
-        # 1 coincidencia = 75% (Verde claro)
-        # 2 coincidencias = 90% (Excelente)
-        # 3 coincidencias = 98% (Perfecto)
-        
-        if match_count == 0:
-            score = 10 # Solo aquí castigamos
-        else:
-            score = 60 + (match_count * 15)
-        
-        return min(98, int(score)), list(intersection)
+        # FÓRMULA DE CONTRASTE:
+        # Si match_count es bajo (1 o 2), el score se queda bajo.
+        # Necesitas al menos 3 o 4 palabras CLAVE reales para subir.
+        if match_count == 0: score = 5
+        elif match_count == 1: score = 25 # Una coincidencia aislada no es suficiente
+        elif match_count == 2: score = 45 # Mejorando...
+        elif match_count == 3: score = 65 # Aceptable
+        elif match_count == 4: score = 80 # Muy bueno
+        else: score = 90 + (match_count * 2) # Excelente
+
+        # Cap at 99
+        final_score = int(min(99, score))
+
+        return final_score, list(intersection)
 
     def analyze_cv(self, cv_text, role_text):
         """
