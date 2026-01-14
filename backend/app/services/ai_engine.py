@@ -1,18 +1,17 @@
-import io
 import re
-import os
-import requests
-import time
-import json
+import io
 from PyPDF2 import PdfReader
 from docx import Document
 
+# Lista básica de palabras vacías en español e inglés para limpiar ruido
+STOPWORDS = {
+    "de", "la", "que", "el", "en", "y", "a", "los", "se", "del", "las", "un", "por", "con", "no", "una", "su", "para", "es", "al", "lo", "como", "mas", "pero", "sus", "le", "ya", "o", "fue", "este", "ha", "si", "porque", "esta", "son", "entre", "cuando", "muy", "sin", "sobre", "ser", "tiene", "tambien", "me", "hasta", "hay", "donde", "quien", "desde", "nos", "durante",
+    "the", "and", "of", "to", "in", "a", "is", "for", "on", "with", "as", "by"
+}
+
 class AIEngine:
     def __init__(self):
-        # Using standard Inference API as requested for Feature Extraction
-        self.api_url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
-        self.api_token = os.environ.get("HF_TOKEN")
-        print("AI Engine initialized via Hugging Face Inference API.")
+        print("Logic NLP Engine initialized (Deterministic Mode).")
 
     def extract_text_from_pdf(self, file_bytes):
         try:
@@ -33,86 +32,52 @@ class AIEngine:
         except Exception as e:
             print(f"Error extracting DOCX: {e}")
             return ""
-    
-    def clean_text(self, text: str) -> str:
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
 
-    def get_embedding(self, text: str):
-        # Call Hugging Face API
-        headers = {}
-        if self.api_token:
-            headers["Authorization"] = f"Bearer {self.api_token}"
+    def clean_tokenize(self, text: str):
+        # 1. Minusculas y quitar caracteres especiales
+        text = text.lower()
+        text = re.sub(r'[^a-z0-9áéíóúñ\s]', '', text)
+        # 2. Tokenizar por espacios
+        tokens = set(text.split())
+        # 3. Filtrar stopwords
+        return {word for word in tokens if word not in STOPWORDS and len(word) > 2}
+
+    def calculate_similarity_and_skills(self, cv_text: str, role_text: str):
+        """
+        Calcula score basado en coincidencia de palabras clave (Jaccard Index adaptado)
+        """
+        cv_tokens = self.clean_tokenize(cv_text)
+        role_tokens = self.clean_tokenize(role_text)
+
+        if not role_tokens:
+            return 0, []
+
+        # Intersección: Palabras que están en AMBOS (CV y Rol)
+        intersection = cv_tokens.intersection(role_tokens)
+        
+        # Matched Skills (para mostrar en el frontend)
+        matched_skills = list(intersection)
+
+        # Cálculo del Score:
+        # Que porcentaje de las palabras del ROL tiene el candidato?
+        # Le damos un boost x1.5 para que los scores no sean tan bajos en textos largos
+        if len(role_tokens) == 0:
+            score = 0
         else:
-            print("Warning: HF_TOKEN not set. API calls might fail.")
-        
-        # User requested specific format: inputs as string
-        payload = {"inputs": text}
-        
-        try:
-            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Check response format
-                if isinstance(data, list):
-                    # If it's a list of floats, it is the embedding
-                    if len(data) > 0 and isinstance(data[0], float):
-                        return data
-                    # If it's a list of lists (batch), take the first one
-                    if len(data) > 0 and isinstance(data[0], list):
-                         return data[0]
-                    return data
-                
-                return [0.0] * 384 # Unexpected format
+            score = (len(intersection) / len(role_tokens)) * 100 * 1.5
 
-            else:
-                print(f"HF API Failed. Status: {response.status_code}")
-                print(f"Response: {response.text}")
+        # Cap score at 95% (nadie es perfecto) y min 10%
+        final_score = int(min(95, max(10, score)))
 
-        except Exception as e:
-            print(f"HF API Exception: {e}")
-        
-        # Fallback
-        print("Using Fallback Zero Vector due to API failure.")
-        return [0.0] * 384
+        return final_score, matched_skills
 
-    def calculate_similarity(self, embedding1, embedding2):
-        # Manual Cosine Similarity (No numpy/scikit-learn)
-        
-        if not embedding1 or not embedding2:
-            return 0
-
-        # Dot product
-        dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
-        
-        # Magnitudes
-        magnitude1 = sum(a * a for a in embedding1) ** 0.5
-        magnitude2 = sum(b * b for b in embedding2) ** 0.5
-        
-        if magnitude1 == 0 or magnitude2 == 0:
-            return 0
-            
-        similarity = dot_product / (magnitude1 * magnitude2)
-        
-        # Clamp between 0 and 1
-        similarity = max(0.0, min(1.0, similarity))
-        
-        return int(similarity * 100)
-
-    def extract_keywords(self, text: str, role_text: str = ""):
-        # Simple Explainability Logic (Regex based)
-        
-        def tokenize(s):
-            # Lowercase and split by non-alphanumeric
-            words = re.findall(r'\b[a-z]{3,}\b', s.lower())
-            return set(words)
-
-        cv_tokens = tokenize(text)
-        role_tokens = tokenize(role_text)
-        
-        # Intersection
-        common = cv_tokens.intersection(role_tokens)
-        
-        return list(common)
+    def analyze_cv(self, cv_text, role_text):
+        """
+        Function that orchestrates the analysis and returns the expected dictionary format.
+        """
+        score, skills = self.calculate_similarity_and_skills(cv_text, role_text)
+        return {
+            "score": score,
+            "matched_skills": skills[:10],  # Top 10 coincidencias
+            "explanation": f"Se encontraron {len(skills)} coincidencias clave entre el CV y el perfil del cargo."
+        }

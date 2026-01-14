@@ -47,32 +47,25 @@ async def process_cv(
         raise HTTPException(status_code=400, detail="Could not extract enough text from file. Maybe it's an image scan?")
 
     # 4. Process AI: Embedding & Similarity
-    clean_text = ai.clean_text(text)
-    
-    # Generate embeddings (returns list of floats)
-    cv_embedding = ai.get_embedding(clean_text)
-    role_embedding = role.get_embedding()
-    
-    # Calculate score
-    if not role_embedding or len(role_embedding) == 0:
-        score = 0
-    else:
-        score = ai.calculate_similarity(cv_embedding, role_embedding)
-
-    # 5. Explainability: Extract common keywords
+    # 4. Process AI: Logic NLP (Safety & Deterministic)
     # Combine role name and description for better context matching
     role_context = f"{role.name} {role.description}"
-    matched_skills = ai.extract_keywords(clean_text, role_context)
+    
+    # New Logic Analysis
+    analysis = ai.analyze_cv(text, role_context)
+    score = analysis["score"]
+    matched_skills = analysis["matched_skills"]
 
-    # 6. Save Candidate
+    # 5. Save Candidate
     db_candidate = models.Candidate(
         role_id=role_id,
         filename=file.filename,
-        content=clean_text,
+        content=text,
         score=score,
     )
-    # cv_embedding is already a list from the new AI engine
-    db_candidate.set_embedding(cv_embedding)
+    
+    # SAFETY: Set empty embedding to avoid SQL constraints or confusion
+    db_candidate.set_embedding([]) 
     db_candidate.set_matched_skills(matched_skills)
     
     db.add(db_candidate)

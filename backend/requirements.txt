@@ -5,5 +5,5 @@ sqlalchemy
 pydantic
 python-docx
 pypdf2
-requests
 jinja2
+requests
