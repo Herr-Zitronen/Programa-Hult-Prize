@@ -9,8 +9,8 @@ from docx import Document
 
 class AIEngine:
     def __init__(self):
-        # Updated to Router URL as per HF 410 error
-        self.api_url = "https://router.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+        # Updated to Router URL with /hf-inference path
+        self.api_url = "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2"
         self.api_token = os.environ.get("HF_TOKEN")
         print("AI Engine initialized via Hugging Face Router API.")
 
